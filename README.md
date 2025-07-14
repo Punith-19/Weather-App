@@ -1,16 +1,28 @@
-# weather_app
+# 🌦️ Flutter Weather App
 
-A new Flutter project.
+A simple Flutter app to display current weather conditions based on geolocation or a manually entered city name. Built using the OpenWeatherMap API.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 🚀 Features
 
-A few resources to get you started if this is your first Flutter project:
+- Fetch weather using **device location**
+- Allow user to **enter city manually** if location permission is denied
+- Beautiful weather animations using **Lottie**
+- Toggle between **light/dark themes**
+- Secure API key loading via `.env` file
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 📦 Dependencies
+
+- `http`
+- `geolocator`
+- `geocoding`
+- `lottie`
+- `flutter_dotenv`
+
+Install them:
+
+```bash
+flutter pub get
