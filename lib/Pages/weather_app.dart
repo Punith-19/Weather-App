@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:lottie/lottie.dart';
+import 'package:weather_app/data/notifiers.dart';
 import 'package:weather_app/services/weather_services.dart';
-
 import '../models/weather_model.dart';
+
 class WeatherApp extends StatefulWidget {
   const WeatherApp({super.key});
 
@@ -11,24 +13,32 @@ class WeatherApp extends StatefulWidget {
 }
 
 class _WeatherAppState extends State<WeatherApp> {
-  final _weatherService = WeatherServices('4a56654574f1801aa38b47e69db74875');
+  late final WeatherServices _weatherService;
   Weather? _weather;
-  _fetchWeather() async{
-    String city = await _weatherService.getCurrentCity();
-    try{
+
+  @override
+  void initState() {
+    super.initState();
+    _weatherService = WeatherServices(dotenv.env['API_KEY']!); // ✅ Safe access here
+    _fetchWeather();
+  }
+
+  Future<void> _fetchWeather() async {
+    String city = await _weatherService.getCurrentCity(context);
+    try {
       final weather = await _weatherService.getWeather(city);
       setState(() {
         _weather = weather;
       });
-    }
-    catch (e){
-      print(e);
+    } catch (e) {
+      print("Weather fetch failed: $e");
     }
   }
-  String getWeatherAnimation(String? mainCondition){
-    if(mainCondition == null) return '';
-    switch(mainCondition.toLowerCase()){
-      case 'clouds' :
+
+  String getWeatherAnimation(String? mainCondition) {
+    if (mainCondition == null) return '';
+    switch (mainCondition.toLowerCase()) {
+      case 'clouds':
       case 'mist':
       case 'smoke':
       case 'haze':
@@ -38,36 +48,67 @@ class _WeatherAppState extends State<WeatherApp> {
       case 'rain':
       case 'drizzle':
       case 'shower rain':
-        return 'assets/rainy. json';
+        return 'assets/rainy.json';
       case 'thunderstorm':
         return 'assets/Thunderstorm.json';
       case 'clear':
-        return 'assets/sunny. json';
+        return 'assets/sunny.json';
       default:
         return '';
     }
   }
-  @override
-  void initState(){
-    super.initState();
-    _fetchWeather();
-  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(_weather?.city ?? "loading city.."),
+      appBar: AppBar(
+        title: const Text('Weather App'),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              String? city = await _weatherService.getCityFromUser(context);
+              if (city != null && city.isNotEmpty) {
+                try {
+                  final weather = await _weatherService.getWeather(city);
+                  setState(() {
+                    _weather = weather;
+                  });
+                } catch (e) {
+                  print("Manual weather fetch failed: $e");
+                }
+              }
+            },
+            child: const Text('Change Location'),
+          ),
+          IconButton(
+            onPressed: () {
+              isDarkMode.value = !isDarkMode.value;
+            },
+            icon: ValueListenableBuilder(
+              valueListenable: isDarkMode,
+              builder: (context, isDark, child) {
+                return Icon(
+                  isDark ? Icons.light_mode : Icons.dark_mode,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+      body: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_weather?.city ?? "Loading city..."),
+              if (_weather != null)
                 Lottie.asset(getWeatherAnimation(_weather?.mainCondition)),
-                Text(_weather?.mainCondition ?? ""),
-                Text('${_weather?.temperature.round()}C'),
-                
-
-              ],
+              Text(_weather?.mainCondition ?? ""),
+              Text('${_weather?.temperature.round() ?? "--"}°C'),
+            ],
           ),
         ),
+      ),
     );
   }
 }
