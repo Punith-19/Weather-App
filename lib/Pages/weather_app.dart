@@ -16,15 +16,15 @@ class _WeatherAppState extends State<WeatherApp> {
   late final WeatherServices _weatherService;
   Weather? _weather;
 
+
   @override
   void initState() {
     super.initState();
-    _weatherService = WeatherServices(dotenv.env['API_KEY']!); // ✅ Safe access here
-    _fetchWeather();
+    _weatherService = WeatherServices(dotenv.env['API_KEY']!);
+    _autoGetCity();
   }
-
-  Future<void> _fetchWeather() async {
-    String city = await _weatherService.getCurrentCity(context);
+  String? _currentCity;
+  Future<void> _fetchWeather(String city) async {
     try {
       final weather = await _weatherService.getWeather(city);
       setState(() {
@@ -33,6 +33,10 @@ class _WeatherAppState extends State<WeatherApp> {
     } catch (e) {
       print("Weather fetch failed: $e");
     }
+  }
+  Future<void> _autoGetCity() async {
+    _currentCity = await _weatherService.getCurrentCity(context);
+    await _fetchWeather(_currentCity!);
   }
 
   String getWeatherAnimation(String? mainCondition) {
@@ -66,16 +70,10 @@ class _WeatherAppState extends State<WeatherApp> {
         actions: [
           TextButton(
             onPressed: () async {
-              String? city = await _weatherService.getCityFromUser(context);
+              final city = await Navigator.pushNamed(context, '/search') as String?;
               if (city != null && city.isNotEmpty) {
-                try {
-                  final weather = await _weatherService.getWeather(city);
-                  setState(() {
-                    _weather = weather;
-                  });
-                } catch (e) {
-                  print("Manual weather fetch failed: $e");
-                }
+                _currentCity = city;
+                await _fetchWeather(_currentCity!);
               }
             },
             child: const Text('Change Location'),
@@ -96,19 +94,35 @@ class _WeatherAppState extends State<WeatherApp> {
         ],
       ),
       body: Center(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(_weather?.city ?? "Loading city..."),
-              if (_weather != null)
-                Lottie.asset(getWeatherAnimation(_weather?.mainCondition)),
-              Text(_weather?.mainCondition ?? ""),
-              Text('${_weather?.temperature.round() ?? "--"}°C'),
-            ],
+        child: RefreshIndicator(
+          onRefresh: () async {
+            if (_currentCity != null && _currentCity!.isNotEmpty) {
+              print("Refreshing weather for: $_currentCity");
+              await _fetchWeather(_currentCity!);
+              print("Weather refreshed successfully");
+            } else {
+              print("City not set yet — cannot refresh.");
+            }
+          },
+          child: SingleChildScrollView(
+            physics: AlwaysScrollableScrollPhysics(),
+            child: Container(
+              alignment: Alignment.center,
+              height: MediaQuery.of(context).size.height,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(_weather?.city ?? "Loading city..."),
+                if (_weather != null)
+                  Lottie.asset(getWeatherAnimation(_weather?.mainCondition)),
+                Text(_weather?.mainCondition ?? ""),
+                Text('${_weather?.temperature.round() ?? "--"}°C'),
+              ],
+              ),
+            ),
           ),
         ),
-      ),
+       ),
     );
   }
 }

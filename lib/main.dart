@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'Pages/search_city.dart';
 import 'data/notifiers.dart';
 import 'Pages/weather_app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(); // ✅ Load .env file before anything else
+  await dotenv.load();
   runApp(const MyApp());
 }
 
@@ -23,6 +24,9 @@ class MyApp extends StatelessWidget {
             brightness: isDark ? Brightness.dark : Brightness.light,
           ),
           home: const WeatherApp(),
+          routes: {
+            '/search': (context) => SearchCity(),
+          },
         );
       },
     );
