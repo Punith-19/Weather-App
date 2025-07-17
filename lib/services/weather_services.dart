@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import 'package:weather_app/models/weather_model.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:location/location.dart' as loc; // alias to avoid conflict
+import 'package:geocoding/geocoding.dart';
 
 class WeatherServices {
   static const BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
@@ -11,7 +11,7 @@ class WeatherServices {
 
   WeatherServices(this.apiKey);
 
-  // Fetch weather data by city name
+  // Fetch weather by city name
   Future<Weather> getWeather(String city) async {
     final response = await http.get(
       Uri.parse('$BASE_URL?q=$city&appid=$apiKey&units=metric'),
@@ -24,34 +24,53 @@ class WeatherServices {
     }
   }
 
-  // Get user's current city using location and reverse geocoding
-  Future<String> getCurrentCity(BuildContext context) async {
-    String? city = "";
+  // Get user's current city from device location
+  Future<String?> getCurrentCity(BuildContext context) async {
+    try {
+      final location = loc.Location();
 
-    // Check and request location permission
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+      bool serviceEnabled = await location.serviceEnabled();
+      if (!serviceEnabled) {
+        serviceEnabled = await location.requestService();
+        if (!serviceEnabled) return null;
+      }
+
+      loc.PermissionStatus permissionGranted = await location.hasPermission();
+      if (permissionGranted == loc.PermissionStatus.denied) {
+        permissionGranted = await location.requestPermission();
+        if (permissionGranted != loc.PermissionStatus.granted) return null;
+      }
+
+      loc.LocationData? locationData;
+      int retries = 0;
+      while (locationData == null && retries < 5) {
+        locationData = await location.getLocation();
+        await Future.delayed(Duration(seconds: 1));
+        retries++;
+      }
+
+      if (locationData != null) {
+        final lat = locationData.latitude;
+        final lon = locationData.longitude;
+
+        final response = await http.get(Uri.parse(
+            'https://api.openweathermap.org/geo/1.0/reverse?lat=$lat&lon=$lon&limit=1&appid=$apiKey'));
+
+        if (response.statusCode == 200) {
+          final List data = jsonDecode(response.body);
+          if (data.isNotEmpty) return data[0]['name'];
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Couldn't get location. Try using search."),
+        ),
+      );
+    } catch (e) {
+      print("Error getting current city: $e");
     }
 
-    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
-      // Return empty string if permission denied
-      return "";
-    } else {
-      // Get current position
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-
-      // Get city from coordinates
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-
-      city = placemarks[0].locality;
-    }
-
-    return city ?? "";
+    return null;
   }
 }
